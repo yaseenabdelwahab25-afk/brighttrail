@@ -521,3 +521,22 @@ To publish your site publicly, use the **Publish button** in the Zo UI or explic
 ## Deployment
 
 The site exports `{ fetch, port }` from `server.ts` for Zo's deployment system. The same code runs in both dev and production - mode is controlled by `NODE_ENV`.
+
+## Product status
+
+Brighttrail is a free Grade 3 summer learning web app for Ontario families. It is self-directed and self-paced, reviews Grade 2 foundations, then builds Grade 3 readiness through 8 structured weeks of math, reading, and writing activities. It is enrichment only and does not provide school credits or an official TDSB record.
+
+### Current functionality
+
+- Learner onboarding with name and avatar.
+- Eight-question diagnostic that creates a support, steady, or stretch starting pathway.
+- Eight-week Grade 3 learning trail with 22 curriculum-themed activities.
+- Automatically graded interactive questions with hints, explanations, retries, scores, XP, stars, coins, streaks, and badges.
+- Progress and mastery dashboard for parents, including average accuracy and family settings.
+- Break reminder and 60–90 minute recommended daily learning limit.
+- Completion certificate view with print/save-to-PDF support once all missions are complete.
+- No accounts, ads, messaging, public profiles, or leaderboards. Progress is stored in the browser on the family device.
+
+### Curriculum scope
+
+The learning sequence is aligned to major Grade 3 Ontario curriculum themes, including number, operations, multiplication and division, fractions, patterns, measurement, time, data, financial literacy, reading comprehension, foundations of language, composition, media literacy, vocabulary, and editing. It is not affiliated with TDSB and does not claim to replace accredited summer school.
