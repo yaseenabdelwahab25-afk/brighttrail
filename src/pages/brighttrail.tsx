@@ -194,7 +194,7 @@ function todayKey() { return new Date().toDateString(); }
 function yesterdayKey() { return new Date(Date.now() - 86400000).toDateString(); }
 
 function MiniBar({ value, color = "coral" }: { value: number; color?: string }) { return <div className="mini-bar"><span className={`fill fill-${color}`} style={{ width: `${Math.max(3, Math.min(100, value))}%` }} /></div>; }
-function Logo({ compact = false }: { compact?: boolean }) { return <div className={`brand-lockup ${compact ? "brand-compact" : ""}`}><span className="brand-mark"><Sparkles size={18} strokeWidth={2.4} /></span><span>brighttrail</span></div>; }
+function Logo({ compact = false }: { compact?: boolean }) { return <div className={`brand-lockup ${compact ? "brand-compact" : ""}`}><span className="brand-mark" aria-hidden="true">BT</span><span>brighttrail</span></div>; }
 function Button({ children, className = "", ...props }: { children: ReactNode; className?: string; [key: string]: unknown }) { return <button className={`button ${className}`} {...props}>{children}</button>; }
 
 function Welcome({ onStart }: { onStart: () => void }) {
