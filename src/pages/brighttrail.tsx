@@ -128,7 +128,7 @@ const activities: Activity[] = [
   { id: "m-data", week: 6, title: "Data Dock", subtitle: "Read graphs and make comparisons", subject: "math", kind: "quiz", minutes: 10, xp: 100, color: "mint", icon: "▥", questions: [
     q("A chart shows 7 red apples, 4 green apples and 5 yellow apples. Which colour has the most?", "Compare the totals.", ["Red", "Green", "Yellow", "They are equal"], 0, "7 is the greatest number of apples."),
     q("How many apples are there altogether?", "Add all three groups.", ["12", "15", "16", "17"], 2, "7 + 4 + 5 = 16 apples."),
-    q("How many more red apples than green apples?", "Subtract the smaller group.", ["2", "3", "4", "11"], 2, "7 − 4 = 3. Wait carefully: there are 3 more red apples, so the correct choice is 3.")
+    q("How many more red apples than green apples?", "Subtract the smaller group.", ["2", "3", "4", "11"], 1, "7 − 4 = 3, so there are 3 more red apples.")
   ] },
   { id: "e-media", week: 6, title: "Message Maker", subtitle: "Read media messages carefully", subject: "english", kind: "game", minutes: 10, xp: 90, color: "violet", icon: "◉", questions: [
     q("What is a purpose of a poster advertising a school fair?", "Think about why it was created.", ["To inform and invite people", "To hide information", "To measure the paper", "To tell a bedtime story"], 0, "The poster gives details and invites people to attend."),
