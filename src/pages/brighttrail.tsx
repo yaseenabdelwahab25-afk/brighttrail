@@ -311,6 +311,7 @@ export default function Brighttrail() {
   const [settings, setSettingsState] = useState<Settings>(initialSettings);
   const [setup, setSetup] = useState(false); const [login, setLogin] = useState(false); const [authLoading, setAuthLoading] = useState(true); const [authError, setAuthError] = useState(""); const [view, setView] = useState<View>("home"); const [activity, setActivity] = useState<Activity | null>(null);
   const onboarding = authLoading ? "loading" : !profile ? (setup ? "setup" : login ? "login" : "welcome") : !progress.diagnosticComplete ? "diagnostic" : "app";
+  if (onboarding === "loading") return <main className="loading-page"><Logo /><div className="loading-orb" /><p>Loading your trail…</p></main>;
   useEffect(() => { api("/api/auth").then((data) => { if (data.authenticated) { setProfileState(data.profile); setProgress(data.progress); setSettingsState(data.settings); } }).catch(() => {}).finally(() => setAuthLoading(false)); }, []);
   useEffect(() => { if (!profile || authLoading) return; const timer = window.setTimeout(() => { api("/api/progress", { method: "PUT", body: JSON.stringify({ progress, settings }) }).catch(() => {}); }, 500); return () => window.clearTimeout(timer); }, [profile, progress, settings, authLoading]);
   const setProfile = (next: Profile, nextProgress = initialProgress, nextSettings = initialSettings) => { setProfileState(next); setProgress(nextProgress); setSettingsState(nextSettings); };
