@@ -12,7 +12,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === "login") {
       const found = await pool.query("SELECT id, password_hash FROM accounts WHERE parent_email = $1", [email]);
       if (!found.rowCount || !(await verifyPassword(password, found.rows[0].password_hash))) return json(res, 401, { error: "That email or password is not correct." });
-      const session = await sessionPayload({ ...req, headers: { ...req.headers, cookie: "" } } as VercelRequest);
       const result = await withTransaction(async (client) => { await createSession(client, found.rows[0].id, res); return client.query("SELECT l.id, l.name, l.avatar, l.grade, l.created_at, a.parent_email, s.progress, s.settings FROM learners l JOIN accounts a ON a.id = l.account_id JOIN learner_state s ON s.learner_id = l.id WHERE a.id = $1 LIMIT 1", [found.rows[0].id]); });
       const row = result.rows[0]; return json(res, 200, { profile: { id: row.id, name: row.name, avatar: row.avatar, grade: row.grade, createdAt: row.created_at, parentEmail: row.parent_email }, progress: row.progress, settings: row.settings });
     }
