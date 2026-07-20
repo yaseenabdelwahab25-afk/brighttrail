@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: false, max: 5, connectionTimeoutMillis: 8000 });
+const databaseUrl = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : undefined; if (databaseUrl) databaseUrl.search = ""; export const pool = new Pool({ connectionString: databaseUrl?.toString(), ssl: { rejectUnauthorized: false }, max: 5, connectionTimeoutMillis: 8000 });
 export const emptyProgress = { xp: 0, stars: 0, coins: 25, streak: 0, completed: [], mastery: { math: 0, english: 0 }, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "", badges: [] };
 export const defaultSettings = { breaks: true, dailyLimit: 90, subjects: "all" };
 export function json(res: VercelResponse, status: number, body: unknown) { return res.status(status).setHeader("Content-Type", "application/json").json(body); }
