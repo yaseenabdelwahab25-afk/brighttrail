@@ -231,7 +231,18 @@ const summerPlan = [
   { label: "AUG 19–30", title: "Summit review", detail: "Mixed practice, final checkpoint, and celebration." },
 ];
 
-const api = async (path: string, options: RequestInit = {}) => { const response = await fetch(path, { ...options, credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/json", ...(options.headers ?? {}) } }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error ?? "Something went wrong. Please try again."); return data; };
+const api = async (path: string, options: RequestInit = {}) => {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(path, { ...options, credentials: "include", signal: controller.signal, headers: { "Content-Type": "application/json", Accept: "application/json", ...(options.headers ?? {}) } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error ?? "Something went wrong. Please try again.");
+    return data;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+};
 function resetProgress(value: ProgressState): ProgressState { return { ...value, mastery: { math: 0, english: 0 }, attempts: {}, completed: [], badges: [], xp: 0, stars: 0, coins: 25, streak: 0, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "" }; }
 function bandFor(score: number): Band { return score <= 3 ? "support" : score <= 6 ? "steady" : "stretch"; }
 function subjectLabel(subject: Subject) { return subject === "math" ? "Math" : "Reading & writing"; }
@@ -312,7 +323,7 @@ export default function Brighttrail() {
   const [setup, setSetup] = useState(false); const [login, setLogin] = useState(false); const [authLoading, setAuthLoading] = useState(true); const [authError, setAuthError] = useState(""); const [view, setView] = useState<View>("home"); const [activity, setActivity] = useState<Activity | null>(null);
   const onboarding = authLoading ? "loading" : !profile ? (setup ? "setup" : login ? "login" : "welcome") : !progress.diagnosticComplete ? "diagnostic" : "app";
   if (onboarding === "loading") return <main className="loading-page"><Logo /><div className="loading-orb" /><p>Loading your trail…</p></main>;
-  useEffect(() => { api("/api/auth").then((data) => { if (data.authenticated) { setProfileState(data.profile); setProgress(data.progress); setSettingsState(data.settings); } }).catch(() => {}).finally(() => setAuthLoading(false)); }, []);
+  useEffect(() => { let active = true; const safety = window.setTimeout(() => { if (active) setAuthLoading(false); }, 12000); api("/api/auth").then((data) => { if (active && data.authenticated) { setProfileState(data.profile); setProgress(data.progress); setSettingsState(data.settings); } }).catch(() => {}).finally(() => { if (active) setAuthLoading(false); window.clearTimeout(safety); }); return () => { active = false; window.clearTimeout(safety); }; }, []);
   useEffect(() => { if (!profile || authLoading) return; const timer = window.setTimeout(() => { api("/api/progress", { method: "PUT", body: JSON.stringify({ progress, settings }) }).catch(() => {}); }, 500); return () => window.clearTimeout(timer); }, [profile, progress, settings, authLoading]);
   const setProfile = (next: Profile, nextProgress = initialProgress, nextSettings = initialSettings) => { setProfileState(next); setProgress(nextProgress); setSettingsState(nextSettings); };
   const reset = async () => { try { await api("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) }); } catch {} setProfileState(null); setProgress(initialProgress); setSettingsState(initialSettings); setSetup(false); setLogin(false); setActivity(null); setView("home"); };
