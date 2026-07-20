@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { clearSession, createSession, defaultSettings, emptyProgress, hashPassword, json, method, normalizeEmail, pool, sessionPayload, validGrade, validPassword, withTransaction, verifyPassword } from "./_lib";
+import { clearSession, createSession, defaultSettings, emptyProgress, hashPassword, json, method, normalizeEmail, pool, sessionPayload, validGrade, validPassword, withTransaction, verifyPassword } from "./_lib.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
