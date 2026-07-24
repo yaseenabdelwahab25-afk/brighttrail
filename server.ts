@@ -1,132 +1,63 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { Database } from "bun:sqlite";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
+import type { Context } from "hono";
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
-import { Hono } from "hono";
 
-// AI agents: read README.md for navigation and contribution guidance.
 type Mode = "development" | "production";
 const app = new Hono();
+const mode: Mode = process.env.NODE_ENV === "production" ? "production" : "development";
+const isProduction = mode === "production";
+const sessionCookie = "brighttrail_session";
+const sessionDays = 30;
+const dbPath = process.env.BRIGHTTRAIL_DB_PATH ?? "./data/brighttrail.sqlite";
+mkdirSync(dirname(dbPath), { recursive: true });
+const db = new Database(dbPath);
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  PRAGMA foreign_keys = ON;
+  CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL, grade INTEGER NOT NULL CHECK (grade BETWEEN 1 AND 5), email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS progress (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, progress_json TEXT NOT NULL, settings_json TEXT NOT NULL, updated_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
+  CREATE INDEX IF NOT EXISTS sessions_expires_idx ON sessions(expires_at);
+`);
 
-const mode: Mode =
-  process.env.NODE_ENV === "production" ? "production" : "development";
+type UserRow = { id: string; name: string; avatar: string; grade: number; email: string; created_at: string };
+type ProgressData = { xp: number; stars: number; coins: number; streak: number; completed: string[]; mastery: { math: number; english: number }; attempts: Record<string, { score: number; total: number; completedAt: string }>; diagnosticComplete: boolean; diagnosticScore: number; lastActivity: string; badges: string[] };
+type SettingsData = { breaks: boolean; dailyLimit: number; subjects: "all" | ("math" | "english")[] };
+const allowedAvatars = new Set(["🦊", "🐼", "🦄", "🐯", "🐸", "🐨", "🐙", "🦁"]);
+const defaultProgress = (): ProgressData => ({ xp: 0, stars: 0, coins: 25, streak: 0, completed: [], mastery: { math: 0, english: 0 }, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "", badges: [] });
+const defaultSettings = (): SettingsData => ({ breaks: true, dailyLimit: 90, subjects: "all" });
+const authAttempts = new Map<string, number[]>();
+function now() { return new Date(); }
+function hashToken(value: string) { return createHash("sha256").update(value).digest("hex"); }
+function value(value: unknown, max: number) { return typeof value === "string" ? value.trim().slice(0, max) : ""; }
+function validEmail(email: string) { return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+function validPassword(password: string) { return password.length >= 8 && password.length <= 128 && /[A-Za-z]/.test(password) && /\d/.test(password); }
+function ip(c: Context) { return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"; }
+function allowedAttempt(key: string) { const cutoff = Date.now() - 600000; const recent = (authAttempts.get(key) ?? []).filter((stamp) => stamp > cutoff); if (recent.length >= 12) { authAttempts.set(key, recent); return false; } recent.push(Date.now()); authAttempts.set(key, recent); return true; }
+function profileFor(user: UserRow) { return { id: user.id, name: user.name, avatar: user.avatar, grade: user.grade, createdAt: user.created_at, parentEmail: user.email }; }
+function accountFor(user: UserRow) { const row = db.prepare("SELECT progress_json, settings_json FROM progress WHERE user_id = ?").get(user.id) as { progress_json: string; settings_json: string } | null; return { profile: profileFor(user), progress: row ? JSON.parse(row.progress_json) : defaultProgress(), settings: row ? JSON.parse(row.settings_json) : defaultSettings() }; }
+function currentUser(c: Context): UserRow | null { const raw = getCookie(c, sessionCookie); if (!raw) return null; const user = db.prepare("SELECT u.id, u.name, u.avatar, u.grade, u.email, u.created_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?").get(hashToken(raw), now().toISOString()) as UserRow | null; if (!user) deleteCookie(c, sessionCookie, { path: "/" }); return user; }
+function startSession(c: Context, userId: string) { const token = randomBytes(32).toString("base64url"); const created = now(); const expires = new Date(created.getTime() + sessionDays * 86400000); db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").run(hashToken(token), userId, expires.toISOString(), created.toISOString()); setCookie(c, sessionCookie, token, { httpOnly: true, secure: isProduction, sameSite: "Lax", path: "/", maxAge: sessionDays * 86400 }); }
+function endSession(c: Context) { const raw = getCookie(c, sessionCookie); if (raw) db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hashToken(raw)); deleteCookie(c, sessionCookie, { path: "/" }); }
+function safeProgress(input: unknown): ProgressData { const data = input && typeof input === "object" ? input as Record<string, unknown> : {}; const n = (key: string, fallback: number, max = 1000000) => { const parsed = Number(data[key]); return Number.isFinite(parsed) ? Math.max(0, Math.min(max, Math.round(parsed))) : fallback; }; const mastery = data.mastery && typeof data.mastery === "object" ? data.mastery as Record<string, unknown> : {}; const attemptsInput = data.attempts && typeof data.attempts === "object" ? data.attempts as Record<string, unknown> : {}; const attempts: ProgressData["attempts"] = {}; for (const [key, raw] of Object.entries(attemptsInput).slice(0, 200)) { if (!raw || typeof raw !== "object") continue; const item = raw as Record<string, unknown>; const score = Number(item.score); const total = Number(item.total); if (Number.isFinite(score) && Number.isFinite(total) && total > 0) attempts[value(key, 100)] = { score: Math.max(0, Math.min(total, Math.round(score))), total: Math.min(100, Math.round(total)), completedAt: value(item.completedAt, 40) }; } return { xp: n("xp", 0), stars: n("stars", 0), coins: n("coins", 25), streak: n("streak", 0, 10000), completed: Array.isArray(data.completed) ? data.completed.filter((item): item is string => typeof item === "string").slice(0, 300).map((item) => item.slice(0, 100)) : [], mastery: { math: Math.max(0, Math.min(100, Number(mastery.math) || 0)), english: Math.max(0, Math.min(100, Number(mastery.english) || 0)) }, attempts, diagnosticComplete: data.diagnosticComplete === true, diagnosticScore: n("diagnosticScore", 0, 100), lastActivity: value(data.lastActivity, 50), badges: Array.isArray(data.badges) ? data.badges.filter((item): item is string => typeof item === "string").slice(0, 50).map((item) => item.slice(0, 50)) : [] }; }
+function safeSettings(input: unknown): SettingsData { const data = input && typeof input === "object" ? input as Record<string, unknown> : {}; const subjects = data.subjects === "all" ? "all" : Array.isArray(data.subjects) ? data.subjects.filter((item): item is "math" | "english" => item === "math" || item === "english") : "all"; const dailyLimit = Number(data.dailyLimit); return { breaks: data.breaks !== false, dailyLimit: [60, 75, 90].includes(dailyLimit) ? dailyLimit : 90, subjects }; }
 
-/**
- * Add any API routes here.
- */
-app.get("/api/hello-zo", (c) => c.json({ msg: "Hello from Zo" }));
+app.use("*", async (c, next) => { c.header("X-Content-Type-Options", "nosniff"); c.header("Referrer-Policy", "strict-origin-when-cross-origin"); c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()"); if (isProduction) c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains"); await next(); });
+app.get("/api/auth", (c) => { const user = currentUser(c); return c.json(user ? { authenticated: true, ...accountFor(user) } : { authenticated: false }); });
+app.post("/api/auth", async (c) => { const key = `${ip(c)}:${c.req.header("user-agent")?.slice(0, 80) ?? "unknown"}`; if (!allowedAttempt(key)) return c.json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429); let body: Record<string, unknown>; try { body = await c.req.json(); } catch { return c.json({ error: "Please send a valid request." }, 400); } const action = value(body.action, 20); if (action === "logout") { endSession(c); return c.json({ authenticated: false }); } const email = value(body.email, 254).toLowerCase(); const password = typeof body.password === "string" ? body.password : ""; if (action === "register") { const name = value(body.name, 18); const avatar = value(body.avatar, 4); const grade = Number(body.grade); if (!name || !validEmail(email) || !validPassword(password) || !allowedAvatars.has(avatar) || ![1, 2, 3, 4, 5].includes(grade)) return c.json({ error: "Check the form: use a name, valid email, strong password, and a grade from 1 to 5." }, 400); if (db.prepare("SELECT id FROM users WHERE email = ?").get(email)) return c.json({ error: "An account with that email already exists. Try signing in instead." }, 409); const user: UserRow = { id: randomUUID(), name, avatar, grade, email, created_at: now().toISOString() }; const passwordHash = await Bun.password.hash(password); try { db.transaction(() => { db.prepare("INSERT INTO users (id, name, avatar, grade, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(user.id, user.name, user.avatar, user.grade, user.email, passwordHash, user.created_at); db.prepare("INSERT INTO progress (user_id, progress_json, settings_json, updated_at) VALUES (?, ?, ?, ?)").run(user.id, JSON.stringify(defaultProgress()), JSON.stringify(defaultSettings()), user.created_at); })(); } catch { return c.json({ error: "We could not create the account. Please try again." }, 500); } startSession(c, user.id); return c.json({ authenticated: true, ...accountFor(user) }, 201); } if (action === "login") { if (!validEmail(email) || !password) return c.json({ error: "Enter your parent email and password." }, 400); const row = db.prepare("SELECT id, name, avatar, grade, email, created_at, password_hash FROM users WHERE email = ?").get(email) as (UserRow & { password_hash: string }) | null; if (!row || !(await Bun.password.verify(password, row.password_hash))) return c.json({ error: "Email or password is incorrect." }, 401); startSession(c, row.id); return c.json({ authenticated: true, ...accountFor(row) }); } return c.json({ error: "Unsupported action." }, 400); });
+app.put("/api/progress", async (c) => { const user = currentUser(c); if (!user) return c.json({ error: "Please sign in again." }, 401); let body: Record<string, unknown>; try { body = await c.req.json(); } catch { return c.json({ error: "Please send a valid request." }, 400); } const progress = safeProgress(body.progress); const settings = safeSettings(body.settings); db.prepare("INSERT INTO progress (user_id, progress_json, settings_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET progress_json = excluded.progress_json, settings_json = excluded.settings_json, updated_at = excluded.updated_at").run(user.id, JSON.stringify(progress), JSON.stringify(settings), now().toISOString()); return c.json({ saved: true, progress, settings }); });
+app.get("/api/health", (c) => c.json({ ok: true, service: "brighttrail" }));
 
-if (mode === "production") {
-  configureProduction(app);
-} else {
-  await configureDevelopment(app);
-}
-
-/**
- * Determine port based on mode. In production, use the published_port if available.
- * In development, always use the local_port.
- * Ports are managed by the system and injected via the PORT environment variable.
- */
-const port = process.env.PORT
-  ? parseInt(process.env.PORT, 10)
-  : mode === "production"
-    ? (config.publish?.published_port ?? config.local_port)
-    : config.local_port;
-
+if (mode === "production") configureProduction(app); else await configureDevelopment(app);
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : mode === "production" ? (config.publish?.published_port ?? config.local_port) : config.local_port;
 export default { fetch: app.fetch, port, idleTimeout: 255 };
-
-/**
- * Configure routing for production builds.
- *
- * - Streams prebuilt assets from `dist`.
- * - Static files from `public/` are copied to `dist/` by Vite and served at root paths.
- * - Falls back to `index.html` for any other GET so the SPA router can resolve the request.
- */
-function configureProduction(app: Hono) {
-  app.use("/assets/*", serveStatic({ root: "./dist" }));
-  app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 302));
-  app.use(async (c, next) => {
-    if (c.req.method !== "GET") return next();
-
-    const path = c.req.path;
-    if (path.startsWith("/api/") || path.startsWith("/assets/")) return next();
-
-    const file = Bun.file(`./dist${path}`);
-    if (await file.exists()) {
-      const stat = await file.stat();
-      if (stat && !stat.isDirectory()) {
-        return new Response(file);
-      }
-    }
-
-    return serveStatic({ path: "./dist/index.html" })(c, next);
-  });
-}
-
-/**
- * Configure routing for development builds.
- *
- * - Boots Vite in middleware mode for transforms.
- * - Static files from `public/` are served at root paths (matching Vite convention).
- * - Mirrors production routing semantics so SPA routes behave consistently.
- */
-async function configureDevelopment(app: Hono): Promise<ViteDevServer> {
-  const vite = await createViteServer({
-    server: { middlewareMode: true, hmr: false, ws: false },
-    appType: "custom",
-  });
-
-  app.use("*", async (c, next) => {
-    if (c.req.path.startsWith("/api/")) return next();
-    if (c.req.path === "/favicon.ico") return c.redirect("/favicon.svg", 302);
-
-    const url = c.req.path;
-    try {
-      if (url === "/" || url === "/index.html") {
-        let template = await Bun.file("./index.html").text();
-        template = await vite.transformIndexHtml(url, template);
-        return c.html(template, {
-          headers: { "Cache-Control": "no-store, must-revalidate" },
-        });
-      }
-
-      const publicFile = Bun.file(`./public${url}`);
-      if (await publicFile.exists()) {
-        const stat = await publicFile.stat();
-        if (stat && !stat.isDirectory()) {
-          return new Response(publicFile, {
-            headers: { "Cache-Control": "no-store, must-revalidate" },
-          });
-        }
-      }
-
-      let result;
-      try {
-        result = await vite.transformRequest(url);
-      } catch {
-        result = null;
-      }
-
-      if (result) {
-        return new Response(result.code, {
-          headers: {
-            "Content-Type": "application/javascript",
-            "Cache-Control": "no-store, must-revalidate",
-          },
-        });
-      }
-
-      let template = await Bun.file("./index.html").text();
-      template = await vite.transformIndexHtml("/", template);
-      return c.html(template, {
-        headers: { "Cache-Control": "no-store, must-revalidate" },
-      });
-    } catch (error) {
-      vite.ssrFixStacktrace(error as Error);
-      console.error(error);
-      return c.text("Internal Server Error", 500);
-    }
-  });
-
-  return vite;
-}
+function configureProduction(app: Hono) { app.use("/assets/*", serveStatic({ root: "./dist" })); app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 302)); app.use(async (c, next) => { if (c.req.method !== "GET") return next(); const path = c.req.path; if (path.startsWith("/api/") || path.startsWith("/assets/")) return next(); const file = Bun.file(`./dist${path}`); if (await file.exists()) { const stat = await file.stat(); if (stat && !stat.isDirectory()) return new Response(file); } return serveStatic({ path: "./dist/index.html" })(c, next); }); }
+async function configureDevelopment(app: Hono): Promise<ViteDevServer> { const vite = await createViteServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: "custom" }); app.use("*", async (c, next) => { if (c.req.path.startsWith("/api/")) return next(); if (c.req.path === "/favicon.ico") return c.redirect("/favicon.svg", 302); const url = c.req.path; try { if (url === "/" || url === "/index.html") { let template = await Bun.file("./index.html").text(); template = await vite.transformIndexHtml(url, template); return c.html(template, { headers: { "Cache-Control": "no-store, must-revalidate" } }); } const publicFile = Bun.file(`./public${url}`); if (await publicFile.exists()) { const stat = await publicFile.stat(); if (stat && !stat.isDirectory()) return new Response(publicFile, { headers: { "Cache-Control": "no-store, must-revalidate" } }); } let result; try { result = await vite.transformRequest(url); } catch { result = null; } if (result) return new Response(result.code, { headers: { "Content-Type": "application/javascript", "Cache-Control": "no-store, must-revalidate" } }); let template = await Bun.file("./index.html").text(); template = await vite.transformIndexHtml("/", template); return c.html(template, { headers: { "Cache-Control": "no-store, must-revalidate" } }); } catch (error) { vite.ssrFixStacktrace(error as Error); console.error(error); return c.text("Internal Server Error", 500); } }); return vite; }
