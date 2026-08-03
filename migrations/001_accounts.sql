@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid PRIMARY KEY,
-  parent_email text NOT NULL UNIQUE,
+  email text NOT NULL UNIQUE,
   password_hash text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
