@@ -528,7 +528,7 @@ Brighttrail is a focused, independent Grade 9–12 summer learning web app for C
 
 ### Current functionality
 
-- Learner onboarding with name and a private email/password account.
+- Learner onboarding with name, grade, and a private email/password account that students can create themselves.
 - Three-question diagnostic with a clear starting baseline.
 - Eight-week Grade 9–12 learning plan with previous-grade review and next-grade readiness.
 - Progress dashboard for learners, with daily rhythm and wellbeing settings.
