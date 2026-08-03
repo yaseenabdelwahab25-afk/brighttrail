@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid PRIMARY KEY,
-  parent_email text NOT NULL UNIQUE,
+  email text NOT NULL UNIQUE,
   password_hash text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS learners (
   id uuid PRIMARY KEY,
   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   name text NOT NULL,
-  avatar text NOT NULL DEFAULT '🦊',
+  avatar text NOT NULL DEFAULT '',
   grade integer NOT NULL CHECK (grade BETWEEN 9 AND 12),
   created_at timestamptz NOT NULL DEFAULT now()
 );

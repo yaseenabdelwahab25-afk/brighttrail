@@ -5,7 +5,7 @@ import { Pool, type PoolClient } from "pg";
 const databaseUrl = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : undefined;
 if (databaseUrl) databaseUrl.search = "";
 export const pool = new Pool({ connectionString: databaseUrl?.toString(), ssl: { rejectUnauthorized: false }, max: 5, connectionTimeoutMillis: 8000 });
-export const emptyProgress = { xp: 0, streak: 0, completed: [], mastery: { mathematics: 0, english: 0, science: 0, socialStudies: 0, studySkills: 0, lifeReadiness: 0 }, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "", badges: [] };
+export const emptyProgress = { xp: 0, streak: 0, completed: [], mastery: { mathematics: 0, english: 0, science: 0, socialStudies: 0, studySkills: 0, lifeReadiness: 0 }, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "" };
 export const defaultSettings = { breaks: true, dailyLimit: 60, subjects: "all" };
 export function json(res: VercelResponse, status: number, body: unknown) { return res.status(status).setHeader("Content-Type", "application/json").json(body); }
 export function method(req: VercelRequest, res: VercelResponse, expected: string) { if (req.method !== expected) { res.setHeader("Allow", expected); json(res, 405, { error: "Method not allowed." }); return false; } return true; }

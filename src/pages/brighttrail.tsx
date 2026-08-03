@@ -44,11 +44,11 @@ import { getProgram, grades, subjects, type Activity, type Grade, type Resource,
 type View = "overview" | "plan" | "library" | "profile";
 type Profile = { id: string; name: string; avatar?: string; grade: Grade; createdAt: string };
 type Attempt = { score: number; total: number; completedAt: string };
-type ProgressState = { xp: number; streak: number; completed: string[]; mastery: Record<string, number>; attempts: Record<string, Attempt>; diagnosticComplete: boolean; diagnosticScore: number; lastActivity: string; badges: string[] };
+type ProgressState = { streak: number; completed: string[]; mastery: Record<string, number>; attempts: Record<string, Attempt>; diagnosticComplete: boolean; diagnosticScore: number; lastActivity: string };
 type Settings = { breaks: boolean; dailyLimit: number; subjects: "all" | Subject[] };
 
 type ApiResponse = { error?: string; authenticated?: boolean; profile?: Profile; progress?: ProgressState; settings?: Settings };
-const initialProgress: ProgressState = { xp: 0, streak: 0, completed: [], mastery: {}, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "", badges: [] };
+const initialProgress: ProgressState = { streak: 0, completed: [], mastery: {}, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "" };
 const initialSettings: Settings = { breaks: true, dailyLimit: 60, subjects: "all" };
 const todayKey = () => new Date().toDateString();
 const yesterdayKey = () => new Date(Date.now() - 86400000).toDateString();
@@ -140,7 +140,7 @@ export default function Brighttrail() {
   const onAccount = (nextProfile: Profile, nextProgress: ProgressState, nextSettings: Settings) => { setProfile(nextProfile); setProgress(nextProgress); setSettings(nextSettings); setMode("welcome"); setView(nextProgress.diagnosticComplete ? "overview" : "overview"); };
   const onLogout = async () => { try { await api("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) }); } catch {} setProfile(null); setProgress(initialProgress); setSettings(initialSettings); setActivity(null); setMode("welcome"); };
   const finishDiagnostic = (score: number, total: number) => setProgress((current) => ({ ...current, diagnosticComplete: true, diagnosticScore: score, mastery: { mathematics: Math.round(score / total * 100), english: Math.round(score / total * 100), science: Math.round(score / total * 100), socialStudies: Math.round(score / total * 100) } }));
-  const completeActivity = (item: Activity, score: number, total: number) => { setProgress((current) => { const already = current.completed.includes(item.id); const nextStreak = current.lastActivity === yesterdayKey() ? current.streak + 1 : current.lastActivity === todayKey() ? current.streak : 1; const completed = already ? current.completed : [...current.completed, item.id]; return { ...current, xp: current.xp + (already ? 0 : item.points), streak: nextStreak, completed, lastActivity: todayKey(), attempts: { ...current.attempts, [item.id]: { score, total, completedAt: new Date().toISOString() } }, mastery: { ...current.mastery, [item.subject]: Math.min(100, (current.mastery[item.subject] ?? 0) + Math.max(3, Math.round(score / total * 10))) } }; }); setActivity(null); setView("overview"); };
+  const completeActivity = (item: Activity, score: number, total: number) => { setProgress((current) => { const already = current.completed.includes(item.id); const nextStreak = current.lastActivity === yesterdayKey() ? current.streak + 1 : current.lastActivity === todayKey() ? current.streak : 1; const completed = already ? current.completed : [...current.completed, item.id]; return { ...current, streak: nextStreak, completed, lastActivity: todayKey(), attempts: { ...current.attempts, [item.id]: { score, total, completedAt: new Date().toISOString() } }, mastery: { ...current.mastery, [item.subject]: Math.min(100, (current.mastery[item.subject] ?? 0) + Math.max(3, Math.round(score / total * 10))) } }; }); setActivity(null); setView("overview"); };
   if (authLoading) return <main className="loading-page"><Logo /><div className="loading-line" /><p>Opening your plan…</p></main>;
   if (!profile) { if (mode === "setup") return <Setup onDone={onAccount} />; if (mode === "login") return <Login onDone={onAccount} onBack={() => setMode("welcome")} />; return <Welcome onStart={() => setMode("setup")} onLogin={() => setMode("login")} />; }
   if (!progress.diagnosticComplete) return <Diagnostic profile={profile} onDone={finishDiagnostic} />;
