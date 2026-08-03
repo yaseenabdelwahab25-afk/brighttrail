@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS learners (
   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   name text NOT NULL,
   avatar text NOT NULL DEFAULT '🦊',
-  grade integer NOT NULL CHECK (grade BETWEEN 1 AND 5),
+  grade integer NOT NULL CHECK (grade BETWEEN 9 AND 12),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = req.body?.action;
     if (action === "logout") { await clearSession(req, res); return json(res, 200, { ok: true }); }
     const email = normalizeEmail(req.body?.email); const password = req.body?.password;
-    if (!email || !/^\S+@\S+\.\S+$/.test(email) || !validPassword(password)) return json(res, 400, { error: "Enter a valid parent email and a password with at least 8 characters, including a letter and a number." });
+    if (!email || !/^\S+@\S+\.\S+$/.test(email) || !validPassword(password)) return json(res, 400, { error: "Enter a valid email and a password with at least 8 characters, including a letter and a number." });
     if (action === "login") {
       const found = await pool.query("SELECT id, password_hash FROM accounts WHERE parent_email = $1", [email]);
       if (!found.rowCount || !(await verifyPassword(password, found.rows[0].password_hash))) return json(res, 401, { error: "That email or password is not correct." });
@@ -22,5 +22,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, 201, { profile: { id: result.learner.id, name: result.learner.name, avatar: result.learner.avatar, grade: result.learner.grade, createdAt: result.learner.created_at, parentEmail: result.account.parent_email }, progress: emptyProgress, settings: defaultSettings });
     }
     return json(res, 400, { error: "Unknown account action." });
-  } catch (error: any) { if (error?.code === "23505") return json(res, 409, { error: "An account already exists for that parent email." }); console.error(error); return json(res, 500, { error: "The account service is temporarily unavailable." }); }
+  } catch (error: any) { if (error?.code === "23505") return json(res, 409, { error: "An account already exists for that email." }); console.error(error); return json(res, 500, { error: "The account service is temporarily unavailable." }); }
 }
