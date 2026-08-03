@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="18" fill="#FF765F"/>
-  <path d="M32 12l3.2 13.8L49 29l-13.8 3.2L32 46l-3.2-13.8L15 29l13.8-3.2L32 12z" fill="white"/>
-  <path d="M47 12l1.1 4.9L53 18l-4.9 1.1L47 24l-1.1-4.9L41 18l4.9-1.1L47 12z" fill="white" opacity=".85"/>
+  <rect width="64" height="64" rx="14" fill="#050505"/>
+  <text x="32" y="40" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="900" letter-spacing="-2">BT</text>
 </svg>
