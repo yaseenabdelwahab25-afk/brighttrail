@@ -1,5 +1,5 @@
 export type Grade = 9 | 10 | 11 | 12;
-export type Subject = "mathematics" | "english" | "science" | "socialStudies" | "studySkills";
+export type Subject = "mathematics" | "english" | "science" | "socialStudies" | "studySkills" | "lifeReadiness";
 export type ActivityKind = "lesson" | "reading" | "quiz" | "test" | "reflection";
 export type Question = { prompt: string; hint: string; options: string[]; answer: number; explanation: string };
 export type Resource = { id: string; title: string; type: "guide" | "reference" | "template" | "checklist"; subject: Subject | "all"; description: string; content: string[] };
@@ -15,6 +15,7 @@ export const subjects: { id: Subject; label: string; short: string }[] = [
   { id: "science", label: "Science", short: "Science" },
   { id: "socialStudies", label: "Canadian & social studies", short: "Social studies" },
   { id: "studySkills", label: "Study systems", short: "Study skills" },
+  { id: "lifeReadiness", label: "Life readiness", short: "Life readiness" },
 ];
 
 const q = (prompt: string, hint: string, options: string[], answer: number, explanation: string): Question => ({ prompt, hint, options, answer, explanation });
@@ -72,6 +73,15 @@ const subjectData: Record<Subject, { titles: string[]; subtitles: string[]; intr
     passages: ["A student who waits to feel motivated loses the first decision. A student who opens the plan and does the first 10 minutes gives motivation a chance to arrive after starting.", "Rereading feels fluent because the page looks familiar. Retrieval is harder, but the effort shows what you actually know.", "A useful help system does not pretend every learner should work alone. It helps them identify the exact question to bring to a teacher, tutor, or trusted adult.", "Your summer plan should leave room for friends, outdoor time, sleep, and boredom. Learning is one part of a healthy life, not the whole life."],
     questions: [q("Which study plan is most sustainable?", "Think consistency, not cramming.", ["Short, focused sessions with retrieval and breaks", "One all-nighter", "Rereading without testing yourself"], 0, "Spaced practice with retrieval is easier to sustain and remember."), q("What should you do when stuck?", "Use a sequence.", ["Name the gap, consult a resource, then try again", "Wait indefinitely", "Skip all hard work"], 0, "Breaking the problem down makes help usable."), q("Why track mistakes?", "Mistakes are information.", ["They reveal what to practise next", "They prove you cannot learn", "They replace feedback"], 0, "A mistake log turns errors into a targeted plan.")],
   },
+  lifeReadiness: {
+    titles: ["Run your own week", "Digital judgement", "Money & work basics", "Your next chapter"],
+    subtitles: ["Build a weekly system that survives busy seasons", "Protect your attention, privacy, and reputation online", "Practise the decisions adulthood will ask you to make", "Turn interests into a realistic next-step plan"],
+    intros: ["Adulthood success is less about having every answer and more about making the next good decision consistently. Start with a week you can actually run.", "Your digital life is part of your reputation. Privacy, source-checking, boundaries, and intentional attention are practical skills, not optional extras.", "Money and work become less intimidating when you understand trade-offs: income, fixed costs, variable costs, contracts, taxes, and time.", "A useful next chapter plan connects strengths, evidence, options, and one small experiment. It does not require choosing your entire life at seventeen."],
+    bullets: [["Choose three priorities and put them on a calendar.", "Break a large task into the next visible action.", "Review what worked every Sunday and adjust without self-criticism."], ["Use unique passwords and multi-factor authentication.", "Check a claim before sharing it.", "Set a boundary for notifications, messages, and personal information."], ["Separate needs, wants, fixed costs, and flexible costs.", "Read the terms before agreeing to a job, subscription, or purchase.", "Ask what a decision costs in money, time, and future options."], ["List strengths with evidence, not just adjectives.", "Compare two pathways using criteria that matter to you.", "Run a low-risk experiment: interview, volunteer, shadow, or build."]],
+    examples: ["A weekly reset takes 15 minutes: check deadlines, choose three priorities, block two focus sessions, and name one person or resource to contact.", "Before reposting a dramatic claim, open the original source, check its date and evidence, and ask what it wants you to do.", "A $30 weekly subscription is $1,560 over a year. Small recurring choices deserve the same attention as large purchases.", "Instead of 'I might like design', run a two-week experiment: study one portfolio, interview one person, and make one small project."],
+    passages: ["A student has school, work, family responsibilities, and friends competing for time. The goal is not a perfect timetable; it is a visible system for deciding what comes first and renegotiating when reality changes.", "A message sent in anger can travel farther than intended. Digital maturity includes pausing, checking the audience, and choosing whether the response should be public, private, or not sent.", "A first paycheque can feel larger than it is. A simple plan separates money for immediate needs, future goals, and a small amount of flexible spending.", "Career readiness is a process of testing hypotheses about yourself. The best first step is usually an experiment that produces evidence, not a permanent declaration."],
+    questions: [q("What makes a weekly plan resilient?", "Plans meet real life.", ["A few clear priorities with room to adjust", "Filling every minute", "Ignoring unexpected responsibilities"], 0, "A resilient plan is specific enough to guide you and flexible enough to survive change."), q("What is a strong digital habit?", "Think before sharing.", ["Check the source, audience, date, and consequences", "Share first and verify later", "Use the same password everywhere"], 0, "Digital judgement protects your information and your future choices."), q("What is the best way to explore a career option?", "Look for evidence.", ["Run a small experiment or speak with someone in the field", "Choose based only on a job title", "Wait for certainty before trying anything"], 0, "Low-risk experiments turn vague interest into useful evidence.")],
+  },
 };
 
 function activity(subject: Subject, grade: Grade, index: number, week: number, kind: ActivityKind, minutes: number, points: number): Activity {
@@ -79,7 +89,7 @@ function activity(subject: Subject, grade: Grade, index: number, week: number, k
   const slot = (grade + index) % data.titles.length;
   const content: LearningContent = { intro: data.intros[slot], bullets: data.bullets[slot], example: data.examples[slot], passage: data.passages[slot], resources: [`${subject}-guide`, "study-system", "help-path"] };
   const questions = data.questions.map((item, questionIndex) => ({ ...item, prompt: questionIndex === 0 && kind === "test" ? `${item.prompt} Explain your reasoning after choosing.` : item.prompt }));
-  return { id: `${grade}-w${week}-${subject}-${index}-${kind}`, week, title: data.titles[slot], subtitle: data.subtitles[slot], subject, kind, minutes, points, icon: subject === "mathematics" ? "∑" : subject === "english" ? "Aa" : subject === "science" ? "◌" : subject === "socialStudies" ? "◎" : "⌁", questions: kind === "quiz" || kind === "test" ? questions : questions.slice(0, 1), content };
+  return { id: `${grade}-w${week}-${subject}-${index}-${kind}`, week, title: data.titles[slot], subtitle: data.subtitles[slot], subject, kind, minutes, points, icon: subject === "mathematics" ? "∑" : subject === "english" ? "Aa" : subject === "science" ? "◌" : subject === "socialStudies" ? "◎" : subject === "lifeReadiness" ? "↗" : "⌁", questions: kind === "quiz" || kind === "test" ? questions : questions.slice(0, 1), content };
 }
 
 export function getProgram(grade: Grade): CurriculumProgram {
@@ -89,20 +99,20 @@ export function getProgram(grade: Grade): CurriculumProgram {
     activity("studySkills", grade, 0, 1, "lesson", 20, 30),
     activity("mathematics", grade, 0, 1, "reading", 25, 40),
     activity("english", grade, 0, 1, "reading", 25, 40),
+    activity("lifeReadiness", grade, 0, 2, "lesson", 30, 50),
     activity("mathematics", grade, 1, 2, "lesson", 30, 50),
-    activity("english", grade, 1, 2, "lesson", 30, 50),
+    activity("english", grade, 1, 3, "lesson", 30, 50),
     activity("science", grade, 0, 3, "reading", 30, 50),
-    activity("socialStudies", grade, 0, 3, "reading", 30, 50),
+    activity("socialStudies", grade, 0, 4, "reading", 30, 50),
     activity("mathematics", grade, 2, 4, "test", 40, 80),
-    activity("english", grade, 2, 4, "quiz", 30, 60),
     activity("science", grade, 1, 5, "lesson", 30, 50),
-    activity("socialStudies", grade, 1, 5, "lesson", 30, 50),
+    activity("lifeReadiness", grade, 1, 5, "quiz", 30, 60),
     activity("mathematics", grade, 3, 6, "lesson", 35, 55),
-    activity("english", grade, 3, 6, "lesson", 35, 55),
+    activity("english", grade, 2, 6, "lesson", 35, 55),
+    activity("socialStudies", grade, 1, 7, "lesson", 30, 50),
     activity("science", grade, 2, 7, "test", 40, 80),
-    activity("socialStudies", grade, 2, 7, "reflection", 30, 55),
     activity("studySkills", grade, 3, 8, "reflection", 25, 45),
-    activity("english", grade, 3, 8, "test", 45, 90),
+    activity("lifeReadiness", grade, 2, 8, "test", 40, 80),
   ];
   const weekTitles = ["Baseline & rhythm", "Previous-grade review", "Core foundations", "Midpoint checkpoint", "Next-grade preview", "Applied practice", "Capstone preparation", "Final demonstration"];
   const weekDetails = ["Set up your independent study system and establish a baseline.", `Repair the ${previousGrade ? `Grade ${previousGrade}` : "previous-year"} ideas that unlock your current course.`, "Practise the concepts that carry across subjects.", "Use a checkpoint to choose what to repair, not to label yourself.", nextGrade ? `Preview the reasoning and vocabulary you will meet in Grade ${nextGrade}.` : "Preview post-secondary, workplace, and lifelong learning transitions.", "Apply ideas to realistic Canadian contexts and decisions.", "Synthesize evidence and prepare a final demonstration.", "Finish the assessment and write a plan for the first month back."];
@@ -115,6 +125,7 @@ export function getProgram(grade: Grade): CurriculumProgram {
     { id: "english-guide", title: "Reading, research & writing kit", type: "template", subject: "english", description: "A reusable annotation, source map, paragraph, and revision workflow.", content: ["Claim → evidence → reasoning → limitation.", "Source map: creator, date, audience, purpose, perspective, exact location.", "Paragraph: focused topic sentence, evidence, explanation, transition.", "Revision passes: purpose, structure, evidence, sentences, proofreading."] },
     { id: "science-guide", title: "Investigation and evidence guide", type: "reference", subject: "science", description: "A self-check for variables, controls, models, uncertainty, and conclusions.", content: ["Identify what changes, what responds, and what stays consistent.", "Use units and appropriate precision.", "Separate observation from interpretation.", "State the conclusion and its limits."] },
     { id: "socialStudies-guide", title: "Canadian source analysis kit", type: "template", subject: "socialStudies", description: "A source and civic decision framework for Canadian contexts.", content: ["Ask who created the source, when, for whom, and why.", "Locate the evidence and name missing voices.", "Identify stakeholders, values, benefits, costs, and unintended effects.", "Recommend a practical next step and cite your evidence."] },
+    { id: "lifeReadiness-guide", title: "Life readiness field guide", type: "guide", subject: "lifeReadiness", description: "Practical tools for planning, digital judgement, money basics, work, and next-step decisions.", content: ["Weekly reset: choose three priorities, calendar the next action, and leave room for reality.", "Digital judgement: check source, audience, date, privacy, and consequence before sharing.", "Money basics: separate needs, wants, fixed costs, flexible costs, and future goals.", "Next step: compare options, run a low-risk experiment, and collect evidence before committing."] },
   ];
   return { grade, previousGrade, nextGrade, activities, weeks, resources, contentFor: (item) => item.content };
 }

@@ -31,7 +31,7 @@ db.exec(`
 type UserRow = { id: string; name: string; avatar: string; grade: number; email: string; created_at: string };
 type ProgressData = { xp: number; streak: number; completed: string[]; mastery: Record<string, number>; attempts: Record<string, { score: number; total: number; completedAt: string }>; diagnosticComplete: boolean; diagnosticScore: number; lastActivity: string; badges: string[] };
 type SettingsData = { breaks: boolean; dailyLimit: number; subjects: "all" | ("math" | "english")[] };
-const allowedAvatars = new Set(["🦊", "🐼", "🦄", "🐯", "🐸", "🐨", "🐙", "🦁"]);
+const allowedAvatars = new Set([""]);
 const defaultProgress = (): ProgressData => ({ xp: 0, streak: 0, completed: [], mastery: {}, attempts: {}, diagnosticComplete: false, diagnosticScore: 0, lastActivity: "", badges: [] });
 const defaultSettings = (): SettingsData => ({ breaks: true, dailyLimit: 60, subjects: "all" });
 const authAttempts = new Map<string, number[]>();
@@ -42,7 +42,7 @@ function validEmail(email: string) { return email.length <= 254 && /^[^\s@]+@[^\
 function validPassword(password: string) { return password.length >= 8 && password.length <= 128 && /[A-Za-z]/.test(password) && /\d/.test(password); }
 function ip(c: Context) { return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"; }
 function allowedAttempt(key: string) { const cutoff = Date.now() - 600000; const recent = (authAttempts.get(key) ?? []).filter((stamp) => stamp > cutoff); if (recent.length >= 12) { authAttempts.set(key, recent); return false; } recent.push(Date.now()); authAttempts.set(key, recent); return true; }
-function profileFor(user: UserRow) { return { id: user.id, name: user.name, avatar: user.avatar, grade: user.grade, createdAt: user.created_at, parentEmail: user.email }; }
+function profileFor(user: UserRow) { return { id: user.id, name: user.name, grade: user.grade, createdAt: user.created_at }; }
 function accountFor(user: UserRow) { const row = db.prepare("SELECT progress_json, settings_json FROM progress WHERE user_id = ?").get(user.id) as { progress_json: string; settings_json: string } | null; return { profile: profileFor(user), progress: row ? JSON.parse(row.progress_json) : defaultProgress(), settings: row ? JSON.parse(row.settings_json) : defaultSettings() }; }
 function currentUser(c: Context): UserRow | null { const raw = getCookie(c, sessionCookie); if (!raw) return null; const user = db.prepare("SELECT u.id, u.name, u.avatar, u.grade, u.email, u.created_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?").get(hashToken(raw), now().toISOString()) as UserRow | null; if (!user) deleteCookie(c, sessionCookie, { path: "/" }); return user; }
 function startSession(c: Context, userId: string) { const token = randomBytes(32).toString("base64url"); const created = now(); const expires = new Date(created.getTime() + sessionDays * 86400000); db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").run(hashToken(token), userId, expires.toISOString(), created.toISOString()); setCookie(c, sessionCookie, token, { httpOnly: true, secure: isProduction, sameSite: "Lax", path: "/", maxAge: sessionDays * 86400 }); }
